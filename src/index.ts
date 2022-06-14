@@ -24,6 +24,10 @@ export interface BehaviorOption {
   width: number;
   /** 背景图Url */
   url?: string;
+  /** Type 为light时 text必传 */
+  type: 'puzzle' | 'light';
+  /** 点选文字 */
+  text?: string;
   /** 验证成功钩子 */
   onSuccess?: () => void;
   /** 验证失败钩子 */
@@ -32,9 +36,30 @@ export interface BehaviorOption {
   onRefresh?: () => void;
 }
 
+interface Click {
+  x: number;
+  y: number;
+}
+
+interface Coord {
+  x: number;
+  y: number;
+  size: number;
+  deg: number;
+  text: string;
+}
+
 /** 获取一个范围内的随机数 */
 const getRandomNumberByRange = (start: number, end: number) =>
   Math.round(Math.random() * (end - start) + start);
+
+/** 获取一个范围内的随机颜色 */
+const randomColor = (start: number, end: number) => {
+  const r = getRandomNumberByRange(start, end);
+  const g = getRandomNumberByRange(start, end);
+  const b = getRandomNumberByRange(start, end);
+  return `rgb(${r},${g},${b})`;
+};
 
 const sum = (x: number, y: number) => x + y;
 
@@ -78,6 +103,8 @@ const createElement = (tagName: string, className?: string) => {
 };
 
 class Behavior {
+  protected Mark!: HTMLElement;
+
   protected canvas!: HTMLCanvasElement;
 
   protected block!: HTMLCanvasElement;
@@ -96,11 +123,18 @@ class Behavior {
 
   protected config = {} as BehaviorOption;
 
+  protected coordList: Coord[] = [];
+
+  protected clickList: Click[] = [];
+
   constructor(ops: BehaviorOption) {
     this.config = ops;
   }
 
-  initDOM() {
+  /**
+   * 初始化拼图Dom
+   */
+  initPuzzleDOM() {
     const { width, height, el } = this.config;
     const Captcha = createElement('div', 'Captcha');
     Captcha.style.width = `${width}px`;
@@ -154,6 +188,58 @@ class Behavior {
   }
 
   /**
+   * 初始化点选Dom
+   */
+  initLightDOM() {
+    const { width, height, el, text } = this.config;
+    const Captcha = createElement('div', 'Captcha');
+    Captcha.style.width = `${width}px`;
+    const canvas = createCanvas(width, height); // 画布
+    const Mark = createElement('div');
+
+    const slider = createElement('div', 'slider');
+    slider.style.width = `${width}px`;
+    const refresh = createElement('div', 'refresh');
+    refresh.onclick = () => {
+      this.reset();
+      if (typeof this.config.onRefresh === 'function') this.config.onRefresh();
+    };
+
+    const sliderText = createElement('span', 'sliderText');
+
+    sliderText.innerHTML = `请依次点击  "${text?.split('').join('" "')}"`;
+
+    // 增加loading
+    const loadingContainer = createElement('div', 'loadingContainer');
+    loadingContainer.style.width = `${width}px`;
+    loadingContainer.style.height = `${height}px`;
+    const loadingIcon = createElement('div', 'loadingIcon');
+    const loadingText = createElement('span');
+    loadingText.innerHTML = '加载中...';
+    loadingContainer.appendChild(loadingIcon);
+    loadingContainer.appendChild(loadingText);
+
+    el.appendChild(Captcha);
+    Captcha.appendChild(Mark);
+    Captcha.appendChild(loadingContainer);
+    Captcha.appendChild(canvas);
+    Captcha.appendChild(refresh);
+
+    Captcha.appendChild(slider);
+    slider.appendChild(sliderText);
+
+    Object.assign(this, {
+      Mark,
+
+      canvas,
+
+      canvasCtx: canvas.getContext('2d'),
+
+      loadingContainer,
+    });
+  }
+
+  /**
    * 创建图片实例
    *
    * @param onload Image实例onload事件
@@ -167,7 +253,11 @@ class Behavior {
     return img;
   }
 
-  initCanvas() {
+  /**
+   * 初始化拼图Canvas
+   * @returns
+   */
+  initPuzzleCanvas() {
     const { height, width } = this.config;
     if (!this.canvas || !this.block) return;
     X = getRandomNumberByRange(W + 10, width - W * 2);
@@ -215,6 +305,56 @@ class Behavior {
   }
 
   /**
+   * 初始化点选Canvas
+   * @returns
+   */
+  initLightCanvas() {
+    const { height, width, text } = this.config;
+    if (!this.canvas || !text) return;
+
+    const textList = text
+      .split('')
+      .reverse()
+      .sort(() => Math.random() - 0.5);
+    this.coordList = [];
+    this.canvasCtx.drawImage(this.Img, 0, 0, width, height);
+
+    textList.forEach((item, index) => {
+      const x = 20 + index * (width / textList.length);
+      const y = getRandomNumberByRange(30, height - 30);
+      const size = getRandomNumberByRange(20, 40);
+      const deg = getRandomNumberByRange(-60, 60);
+
+      if (deg > 0) {
+        this.coordList.push({ x: x - (deg / 80) * size, y, size, deg, text: item });
+      } else if (deg < 0) {
+        this.coordList.push({ x, y: y + (deg / 80) * size, size, deg, text: item });
+      } else {
+        this.coordList.push({ x, y, size, deg, text: item });
+      }
+
+      const gradient = this.canvasCtx.createLinearGradient(0, 0, x + size, y + size);
+      gradient.addColorStop(0, randomColor(150, 255));
+      gradient.addColorStop(0.5, randomColor(50, 255));
+      gradient.addColorStop(1, randomColor(0, 50));
+
+      this.canvasCtx.fillStyle = gradient;
+      this.canvasCtx.font = `${size}px SimHei`;
+
+      this.canvasCtx.textBaseline = 'top';
+
+      this.canvasCtx.translate(x, y);
+      this.canvasCtx.rotate((deg * Math.PI) / 180);
+      this.canvasCtx.fillText(item, 0, 0);
+      // 恢复坐标原点和旋转角度
+      this.canvasCtx.rotate((-deg * Math.PI) / 180);
+      this.canvasCtx.translate(-x, -y);
+    });
+
+    this.coordList.sort((a, b) => text.split('').indexOf(a.text) - text.split('').indexOf(b.text));
+  }
+
+  /**
    * 验证是否成功拼图及真人操作
    *
    * @returns
@@ -230,6 +370,71 @@ class Behavior {
       spliced: Math.abs(left - X) < 5,
       verified: stddev !== 0, // 简单验证拖动轨迹，为零时表示Y轴上下没有波动，可能非人为操作
     };
+  }
+
+  /**
+   * 添加点选Mark
+   */
+  addMark(x: number, y: number) {
+    const Mark = createElement('div', `icon-Mark point-${this.clickList.length}`);
+    Mark.style.top = `${y}px`;
+    Mark.style.left = `${x}px`;
+    const index = this.clickList.length;
+    this.Mark.appendChild(Mark);
+    Mark.addEventListener('click', () => {
+      if (this.clickList.length === index) {
+        this.Mark.removeChild(Mark);
+        this.clickList.pop();
+      }
+    });
+  }
+
+  /**
+   * 判断点选Mark
+   */
+  judgeMark() {
+    let judge = true;
+    this.clickList.forEach((item, index) => {
+      const { x: touchX, y: touchY } = item;
+
+      const coord = this.coordList[index];
+
+      if (
+        coord.deg > 0 &&
+        (touchX < coord.x ||
+          touchX > coord.x + coord.size * 1.2 ||
+          touchY < coord.y ||
+          touchY > coord.y + coord.size * 1.3)
+      ) {
+        judge = false;
+        return;
+      }
+      if (
+        coord.deg < 0 &&
+        (touchX < coord.x ||
+          touchX > coord.x + coord.size * 1.3 ||
+          touchY < coord.y ||
+          touchY > coord.y + coord.size * 1.2)
+      ) {
+        judge = false;
+        return;
+      }
+      if (
+        coord.deg === 0 &&
+        (touchX < coord.x ||
+          touchX > coord.x + coord.size ||
+          touchY < coord.y ||
+          touchY > coord.y + coord.size)
+      ) {
+        judge = false;
+      }
+    });
+    if (judge) {
+      if (typeof this.config.onSuccess === 'function') this.config.onSuccess();
+    } else {
+      this.reset();
+      if (typeof this.config.onFail === 'function') this.config.onFail();
+    }
   }
 
   /**
@@ -293,41 +498,88 @@ class Behavior {
   }
 
   /**
+   * 点选点击事件
+   */
+  clickEvent() {
+    const { text } = this.config;
+    if (!text) return;
+    const handleDragEnd = (e: MouseEvent) => {
+      const { offsetX: touchX, offsetY: touchY } = e;
+
+      // const y = e.clientY;
+
+      if (this.clickList.length < text.length) {
+        this.clickList.push({ x: touchX, y: touchY });
+        this.addMark(touchX, touchY);
+        if (this.clickList.length === text.length) {
+          this.judgeMark();
+        }
+      }
+    };
+
+    this.canvas.addEventListener('click', handleDragEnd);
+  }
+
+  /**
    * 重置拼图
    * @returns
    */
   reset() {
-    const { width, height } = this.config;
-    if (!this.canvas || !this.block) return;
+    const { width, height, type } = this.config;
+    if (
+      (type === 'puzzle' && (!this.canvas || !this.block)) ||
+      (type === 'light' && !this.canvas)
+    ) {
+      return;
+    }
     // 重置样式
-    setClass(this.sliderMask, 'slider-Mask');
 
-    this.sliderIcon.style.left = `${0}px`;
-    this.sliderMask.style.width = `${0}px`;
-    this.sliderMask.style.left = `${0}px`;
-    this.block.width = width;
-    this.block.style.left = `${0}px`;
+    if (type === 'puzzle') {
+      setClass(this.sliderMask, 'slider-Mask');
+      this.sliderIcon.style.left = `${0}px`;
+      this.sliderMask.style.width = `${0}px`;
+      this.sliderMask.style.left = `${0}px`;
+      this.block.width = width;
+      this.block.style.left = `${0}px`;
+      this.sliderIcon.style.pointerEvents = 'none';
+      this.blockCtx.clearRect(0, 0, width, height);
+    } else {
+      this.clickList = [];
+      this.Mark.innerHTML = '';
+    }
 
     this.loadingContainer.style.display = '';
-    this.sliderIcon.style.pointerEvents = 'none';
 
     // 清空画布
     this.canvasCtx.clearRect(0, 0, width, height);
-    this.blockCtx.clearRect(0, 0, width, height);
 
     // 重新加载图片
-    this.Img.src = this.config.url || `https://picsum.photos/${width}/${height}`;
+    const time = new Date().getTime();
+    this.Img.src = this.config.url || `https://picsum.photos/${width}/${height}?time=${time}`;
   }
 
   init() {
-    this.initDOM();
+    const { type } = this.config;
+    if (type === 'puzzle') {
+      this.initPuzzleDOM();
+    } else {
+      this.initLightDOM();
+    }
     this.Img = this.createImg(() => {
-      this.initCanvas();
+      if (type === 'puzzle') {
+        this.initPuzzleCanvas();
+      } else {
+        this.initLightCanvas();
+      }
       this.loadingContainer.style.display = 'none';
-      this.sliderIcon.style.pointerEvents = '';
+      if (type === 'puzzle') this.sliderIcon.style.pointerEvents = '';
     });
 
-    this.TouchEvent();
+    if (type === 'puzzle') {
+      this.TouchEvent();
+    } else {
+      this.clickEvent();
+    }
   }
 }
 

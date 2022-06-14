@@ -86,6 +86,32 @@
     }
   }
 
+  .icon-Mark {
+    position: absolute;
+    width: 26px;
+    height: 33px;
+    cursor: pointer;
+    background-repeat: no-repeat;
+    opacity: 0.6;
+    transform: translate(-50%, -90%);
+    background-image: url(https://scplugins.oss-cn-shenzhen.aliyuncs.com/assets/activity/verifyIcon.png);
+  }
+  .point-1 {
+    background-position-y: -367px;
+  }
+  .point-2 {
+    background-position-y: -403px;
+  }
+  .point-3 {
+    background-position-y: -439px;
+  }
+  .point-4 {
+    background-position-y: -475px;
+  }
+  .point-5 {
+    background-position-y: -511px;
+  }
+
   .sliderIcon_activer {
     height: 0.8rem;
     border: 1px solid #1991fa;
