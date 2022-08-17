@@ -9,7 +9,7 @@ yarn build
 ### Use case
 
 ```ts
-import { Behavior, BehaviorOption } from '@shencom-behavior';
+import { Behavior, BehaviorOption } from 'shencom-behavior';
 
 /**
  *  type 为’light‘ 则为点选校验 text必传

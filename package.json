@@ -1,6 +1,6 @@
 {
   "name": "shencom-behavior",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "private": false,
   "homepage": "https://github.com/Ocean-403/shencom-behavior",
   "main": "./lib/index.js",
