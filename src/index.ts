@@ -555,7 +555,8 @@ class Behavior {
 
     // 重新加载图片
     const time = new Date().getTime();
-    this.Img.src = this.config.url || `https://picsum.photos/${width}/${height}?time=${time}`;
+    this.Img.src =
+      `${this.config.url}?time=${time}` || `https://picsum.photos/${width}/${height}?time=${time}`;
   }
 
   init() {
@@ -565,6 +566,14 @@ class Behavior {
     } else {
       this.initLightDOM();
     }
+  }
+
+  /**
+   * 绘制canvas
+   * @returns
+   */
+  draw() {
+    const { type } = this.config;
     this.Img = this.createImg(() => {
       if (type === 'puzzle') {
         this.initPuzzleCanvas();

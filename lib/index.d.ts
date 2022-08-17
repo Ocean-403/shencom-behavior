@@ -107,5 +107,10 @@ declare class Behavior {
      */
     reset(): void;
     init(): void;
+    /**
+     * 绘制canvas
+     * @returns
+     */
+    draw(): void;
 }
 export { Behavior };

@@ -34,4 +34,5 @@ const config: BehaviorOption = {
 };
 const behavior = new Behavior(config);
 behavior.init();
+behavior.draw();
 ```
